@@ -1,0 +1,6 @@
+id,name,age,city
+1,Alice,23,New York
+2,Bob,,Los Angeles
+3,,25,Chicago
+4,Charlie,30,
+5,,,Houston

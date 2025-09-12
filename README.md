@@ -3,6 +3,7 @@
 ### Task C: Proposing Enhancement
 
 - #### Step 1: Brainstorm on your own.
+    1 
 
 - #### Step 2: Use an LLM to help expand your perspective.
 
