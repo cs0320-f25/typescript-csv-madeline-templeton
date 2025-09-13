@@ -39,5 +39,5 @@
 #### Team members and contributions (include cs logins):
 
 #### Collaborators (cslogins of anyone you worked with on this project and/or generative AI):
-#### Total estimated time it took to complete project: https://github.com/cs0320-f25/typescript-csv-madeline-templeton
-#### Link to GitHub Repo:  
+#### Total estimated time it took to complete project: 6 hours
+#### Link to GitHub Repo:  https://github.com/cs0320-f25/typescript-csv-madeline-templeton
