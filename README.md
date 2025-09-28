@@ -22,7 +22,14 @@
 
     Initially, I was most concerned with obvious issues such as how the parser handles lines with multiple commas, quotes, empty fields etc. The first prompt I used with the LLM was biased by these concerns and subsequently suggested a number of tests concentrated on issues like these. However, when I revisited the issue in a secondary chat with a less narrowing prompt, I began to consider other functional issues such as error handling, and row transformation. The markedly different responses in different chats shocked me and perhaps helped me realize the value of revisiting problems, especially when using LLMs for help. In the future, I will certainly try to have separate chats whenever possible. 
 
+Create an error type that gives enough information to be useful to the caller. This should contain, at minimum: 
+the row number (or index); and 
+the error from Zod. 
+
 ### Design Choices
+User story 4: I implemented the CSVParseError to satisfy user story 3. It takes in information about the error (location, type, file etc.) and returns a user friendly message explaining what happened. It does this via the createUserFriendlyMessage() function which uses information passed to the csvParseError to create a message detailing what happened. I included the file name (optional), rowNumber, errorType, and raw data so that the user can pinpoint exactly what went wrong and where it happened. The csvParseError function is invoked in the parseBatch and parsCSVGenerator functions. 
+
+The parser stops immediately on the first validation error so that the user can promptly fix the error and it will not cause issues later on. 
 
 ### 1340 Supplement
 
