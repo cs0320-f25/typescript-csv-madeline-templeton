@@ -125,3 +125,113 @@ describe("extended parseCSV", () => {
   });
 });
 
+
+// --- tests for schemas with refine and brand ---
+const unrefined_item_schema = z.object({
+    itemName: z.string(),
+    itemPrice: z.number(),
+    itemCategory: z.string(),
+});
+
+const item_schema_refined = z.object({
+    itemName: z.string().refine(name => name.length > 0, { message: "Item name cannot be empty" }),
+    itemPrice: z.number().refine(price => price >= 0, { message: "Item price must be non-negative" }),
+    itemCategory: z.string().refine(
+        (category) => 
+            ['Food', 'Sports', 'Technology', 'Clothes'].includes(category), 
+        { message: "Invalid category" }),
+});
+
+const restaurant_schema_unbranded = z.object({
+    name: z.string(),
+    rating: z.number().min(0).max(5),
+    cuisine: z.string(),
+});
+
+// Define branded field schemas
+const RestaurantName = z.string().brand<'valid restaurant name'>();
+const Rating = z.number().min(0).max(5).brand<'rating'>();
+const Cuisine = z.string().brand<'cuisine'>();
+
+// Combine into an object schema
+const restaurant_branded = z.object({
+  name: RestaurantName,
+  rating: Rating,
+  cuisine: Cuisine,
+});
+
+// Type inferred with branding applied
+type BrandedRestaurant = z.infer<typeof restaurant_branded>;
+
+// === Refinement & Branding integration tests ===
+
+describe("parseCSV with refine() and brand() schemas", () => {
+  // Map [itemName, itemPrice, itemCategory] -> object and coerce types
+  const RefinedItemRowSchema = z.preprocess((row) => {
+    const [itemName, priceStr, itemCategory] = row as string[];
+    return { itemName, itemPrice: Number(priceStr), itemCategory };
+  }, item_schema_refined);
+
+  // Map [name, rating, cuisine] -> object and coerce types
+  const BrandedRestaurantRowSchema = z.preprocess((row) => {
+    const [name, ratingStr, cuisine] = row as string[];
+    return { name, rating: Number(ratingStr), cuisine } as BrandedRestaurant;
+  }, restaurant_branded);
+
+  const ITEMS_REFINED_VALID = path.join(__dirname, "../data/items_refined_valid.csv");
+  const ITEMS_REFINED_INVALID = path.join(__dirname, "../data/items_refined_invalid.csv");
+  const RESTAURANTS_BRANDED_VALID = path.join(__dirname, "../data/restaurants_branded_valid.csv");
+  const RESTAURANTS_BRANDED_INVALID = path.join(__dirname, "../data/restaurants_branded_invalid.csv");
+
+  describe("refine() – items", () => {
+    test("valid file parses into refined objects", async () => {
+      const result = await parseCSV(ITEMS_REFINED_VALID, { hasHeaders: true, schema: RefinedItemRowSchema });
+      if (!("header" in (result as any))) throw new Error("Expected header wrapper");
+      const { header, data } = result as { header: string[]; data: Array<z.infer<typeof RefinedItemRowSchema>> };
+      expect(header).toEqual(["itemName", "itemPrice", "itemCategory"]);
+      expect(data).toEqual([
+        { itemName: "Apple", itemPrice: 1.99, itemCategory: "Food" },
+        { itemName: "Basketball", itemPrice: 25, itemCategory: "Sports" },
+        { itemName: "Laptop", itemPrice: 899.99, itemCategory: "Technology" },
+        { itemName: "Jacket", itemPrice: 79.5, itemCategory: "Clothes" },
+      ]);
+    });
+
+    test("invalid file fails refinement with informative error", async () => {
+      await expect(
+        parseCSV(ITEMS_REFINED_INVALID, { hasHeaders: true, schema: RefinedItemRowSchema })
+      ).rejects.toThrow(CSVParseError);
+
+      await expect(
+        parseCSV(ITEMS_REFINED_INVALID, { hasHeaders: true, schema: RefinedItemRowSchema })
+      ).rejects.toMatchObject({ rowNumber: 2 }); // first bad row after header
+    });
+  });
+
+  describe("brand() – restaurants", () => {
+    test("valid file parses into branded objects", async () => {
+      const result = await parseCSV(RESTAURANTS_BRANDED_VALID, { hasHeaders: true, schema: BrandedRestaurantRowSchema });
+      if (!("header" in (result as any))) throw new Error("Expected header wrapper");
+      const { header, data } = result as { header: string[]; data: Array<BrandedRestaurant> };
+      expect(header).toEqual(["name", "rating", "cuisine"]);
+      expect(data).toEqual([
+        { name: "Chez Nous", rating: 4.5, cuisine: "French" } as BrandedRestaurant,
+        { name: "Green Bowl", rating: 4.0, cuisine: "Vegetarian" } as BrandedRestaurant,
+        { name: "Tech Bites", rating: 5, cuisine: "Modern" } as BrandedRestaurant,
+      ]);
+    });
+
+    test("invalid file fails numeric/brand-related constraints", async () => {
+      await expect(
+        parseCSV(RESTAURANTS_BRANDED_INVALID, { hasHeaders: true, schema: BrandedRestaurantRowSchema })
+      ).rejects.toThrow(CSVParseError);
+
+      // The first offending row may be the one with empty name or non-numeric/out-of-range rating
+      await expect(
+        parseCSV(RESTAURANTS_BRANDED_INVALID, { hasHeaders: true, schema: BrandedRestaurantRowSchema })
+      ).rejects.toMatchObject({ rowNumber: expect.any(Number) });
+    });
+  });
+});
+
+
